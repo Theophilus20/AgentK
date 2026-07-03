@@ -30,7 +30,7 @@ from fastapi.staticfiles import StaticFiles
 
 from kaspa_layer import LEDGER, CommitmentKind, sha256
 from agents import REGISTRY, LLM_CLIENT, MODEL
-from kaspa_autonomous import SIGNER
+from kaspa_autonomous import SIGNER, ONCHAIN_LOG
 from orchestrator import run_job
 
 app = FastAPI(title="AgentK")
@@ -179,7 +179,8 @@ async def dispute(request: Request) -> JSONResponse:
         # anchor the ruling on-chain
         if SIGNER.enabled:
             oc = await SIGNER.send(SIGNER.address, 0.2,
-                                   payload_hex=dis_hash[2:])
+                                   payload_hex=dis_hash[2:],
+                                   label=f"Dispute ruling · task {idx}")
             if oc.ok:
                 onchain = {"txid": oc.txid, "explorer_url": oc.explorer_url,
                            "api_url": oc.api_url}

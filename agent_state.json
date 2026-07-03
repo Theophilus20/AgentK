@@ -1,43 +1,43 @@
 {
  "research": {
-  "reputation": 88.63,
-  "jobs_done": 2,
-  "avg_latency_s": 11.81,
+  "reputation": 91.88,
+  "jobs_done": 4,
+  "avg_latency_s": 12.05,
   "wallet": "kaspatest:qr8awrh97xlk9gpz5m7nrm5trm74y5tssmhlen09wy2uzqprelwxzd5vsy059",
   "pubkey": "0x7aab1e1de52dcffa722ddbb1d80c439402a7b840ed48c949d4c3c6312c0affa4"
  },
  "copywriting": {
-  "reputation": 83.1,
-  "jobs_done": 1,
-  "avg_latency_s": 12.86,
+  "reputation": 86.67,
+  "jobs_done": 2,
+  "avg_latency_s": 10.52,
   "wallet": "kaspatest:qz09kq65pesrk220el0r3h42zvyjd6y0e6xkve3y8cjca42j9tta7jdh7r53d",
   "pubkey": "0x0a1564438fc5c84cf81fc4d27f884853705e99af871689f15e1c131f79936e06"
  },
  "design": {
-  "reputation": 90.1,
-  "jobs_done": 2,
-  "avg_latency_s": 10.17,
+  "reputation": 92.6,
+  "jobs_done": 4,
+  "avg_latency_s": 12.12,
   "wallet": "kaspatest:qqgpguxtqzyxaaqx4q0alvjwrzqazetqy6kqkhgmm7rhg6hw8y2mgalac5kff",
   "pubkey": "0x2e5bb369c2315a0e568e81da0fdbf9ed7936459659f9af95a3f2d11ab0d5c18e"
  },
  "frontend": {
-  "reputation": 87.65,
-  "jobs_done": 2,
-  "avg_latency_s": 15.85,
+  "reputation": 90.34,
+  "jobs_done": 4,
+  "avg_latency_s": 14.49,
   "wallet": "kaspatest:qz59yzymq5dclgwfw8tgf9j6ad45qjvhngc5q9j85tyd89jvcxe7wplnpdkry",
   "pubkey": "0x0aa573500fcf1c2ffd3055323e3e24defa85674ac88aaf3bc4d646a3a0bf1de1"
  },
  "testing": {
-  "reputation": 71.17,
-  "jobs_done": 2,
-  "avg_latency_s": 14.41,
+  "reputation": 71.32,
+  "jobs_done": 4,
+  "avg_latency_s": 13.0,
   "wallet": "kaspatest:qzwzzdet40ljvvjgya9rvlr96krsv82ccpkjnxy4wxef76h7r8zp633perued",
   "pubkey": "0xe6f109d347f4ba1a60f09e4a5f6403955759daa9c737d6c7b5e0d9da7cbc4eaf"
  },
  "integration": {
-  "reputation": 89.61,
-  "jobs_done": 2,
-  "avg_latency_s": 18.63,
+  "reputation": 92.36,
+  "jobs_done": 4,
+  "avg_latency_s": 17.68,
   "wallet": "kaspatest:qqn5cznh5jgazsat0r9z70rvcp45klzy7lmsxmemmmlh3cp4lxsrjhwqke84v",
   "pubkey": "0x85d1eed85dae30bc6bf38d6dcde019f978f66f2d9738d873254182a92ec0ae99"
  }

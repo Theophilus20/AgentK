@@ -138,6 +138,14 @@ async def _run_job_inner(goal: str, budget: float, deadline_min: int,
     raw = await LLM_CLIENT.chat(COORDINATOR_SYS, f"Goal: {goal}. Budget: {budget} KAS.",
                                 json_mode=True)
     tasks = _parse_tasks(raw)
+    # BUDGET DISCIPLINE: reputation premiums inflate bids ~5%, so scale
+    # estimates to 90% of budget — the escrow can never run dry mid-job.
+    total_est = sum(t["est_kas"] for t in tasks)
+    cap = budget * 0.90
+    if total_est > cap and total_est > 0:
+        f = cap / total_est
+        for t in tasks:
+            t["est_kas"] = max(0.5, round(t["est_kas"] * f, 1))
     job.tasks = tasks
     yield _ev("dag_built", {"tasks": tasks})
 
@@ -156,8 +164,11 @@ async def _run_job_inner(goal: str, budget: float, deadline_min: int,
         skill = task.get("skill", "research")
         agent = REGISTRY.match(skill)
 
-        # Negotiate
-        bid = agent.bid(float(task.get("est_kas", 3)))
+        # Negotiate — capped at what's actually left in escrow
+        committed = sum(r.get("bid", 0) for r in job.results)
+        remaining = round(budget - committed, 1)
+        bid = min(agent.bid(float(task.get("est_kas", 3))), max(0.5, remaining))
+        bid = round(bid, 1)
         yield _ev("negotiation", {
             "task_index": i, "task": task["title"], "skill": skill,
             "agent": agent.name, "agent_wallet": agent.wallet,
@@ -181,7 +192,8 @@ async def _run_job_inner(goal: str, budget: float, deadline_min: int,
         # Kaspa before work starts — no party can later deny the terms.
         if SIGNER.enabled:
             oc = await SIGNER.send(SIGNER.address, 0.2,
-                                   payload_hex=tc.commitment_hash[2:])
+                                   payload_hex=tc.commitment_hash[2:],
+                                   label=f"Agreement · {task['title'][:38]}")
             yield _ev("onchain_commitment", {
                 "task_index": i, "agent": agent.name, "reward_kas": bid,
                 "ok": oc.ok, "txid": oc.txid,
@@ -254,7 +266,8 @@ async def _run_job_inner(goal: str, budget: float, deadline_min: int,
         if SIGNER.enabled and result == SettlementResult.RELEASED:
             pay = round(max(0.2, bid * PAY_SCALE), 4)
             oc = await SIGNER.send(agent.wallet, pay,
-                                   payload_hex=wp.commitment_hash[2:])
+                                   payload_hex=wp.commitment_hash[2:],
+                                   label=f"Payment · {agent.name} · {task['title'][:30]}")
             yield _ev("onchain_settled", {
                 "task_index": i, "agent": agent.name,
                 "agent_wallet": agent.wallet, "amount_kas": pay,
@@ -275,7 +288,7 @@ async def _run_job_inner(goal: str, budget: float, deadline_min: int,
         })
 
         job.results.append({
-            "task": task["title"], "agent": agent.name,
+            "task": task["title"], "agent": agent.name, "bid": bid,
             "output": out.get("output", ""), "score": verdict["score"],
             "settled": result.value,
         })
@@ -292,7 +305,8 @@ async def _run_job_inner(goal: str, budget: float, deadline_min: int,
     # AUTONOMOUS MASTER ANCHOR: seal the whole job on-chain, no clicks.
     if SIGNER.enabled:
         oc = await SIGNER.send(SIGNER.address, 0.2,
-                               payload_hex=master_hash[2:])
+                               payload_hex=master_hash[2:],
+                               label=f"Master anchor · {job.id}")
         yield _ev("onchain_anchor", {
             "ok": oc.ok, "txid": oc.txid,
             "explorer_url": oc.explorer_url, "api_url": oc.api_url,

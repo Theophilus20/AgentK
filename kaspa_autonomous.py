@@ -95,7 +95,7 @@ class AutonomousSigner:
     # ------------------------------------------------------------------ #
 
     async def send(self, to_address: str, amount_kas: float,
-                   payload_hex: str = "") -> OnChainResult:
+                   payload_hex: str = "", label: str = "") -> OnChainResult:
         """
         Build, sign, and broadcast one real transaction on Testnet-10.
         `payload_hex` (e.g. a commitment hash) is embedded in the tx payload
@@ -106,10 +106,19 @@ class AutonomousSigner:
             return OnChainResult(False, error=self.error)
         timeout = float(os.environ.get("ONCHAIN_TIMEOUT_S", "45") or 45)
         try:
-            return await asyncio.wait_for(
+            res = await asyncio.wait_for(
                 self._send_inner(to_address, amount_kas, payload_hex),
                 timeout=timeout,
             )
+            if res.ok:
+                import time as _t
+                ONCHAIN_LOG.append({
+                    "ts": _t.time(), "label": label or "transaction",
+                    "txid": res.txid, "explorer_url": res.explorer_url,
+                    "api_url": res.api_url, "amount_kas": amount_kas,
+                    "to": to_address, "payload_hash": "0x" + payload_hex[:16],
+                })
+            return res
         except asyncio.TimeoutError:
             return OnChainResult(
                 False,
@@ -185,6 +194,9 @@ def real_agent_address() -> str:
     # SDK missing: fall back to demo-shaped address
     import secrets
     return "kaspatest:" + secrets.token_hex(20)
+
+
+ONCHAIN_LOG: list[dict] = []   # every real tx this server has broadcast
 
 
 SIGNER = AutonomousSigner()

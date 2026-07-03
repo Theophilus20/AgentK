@@ -151,7 +151,11 @@
     padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700}
   td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
   tr:last-child td{border:none}
-  td.mono{font-family:var(--mono);font-size:11px;color:var(--mut)}
+  td.mono{font-family:var(--mono);font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+  td.idx{font-family:var(--mono);font-size:11px;color:var(--mut2);text-align:right;width:34px;font-variant-numeric:tabular-nums}
+  .copyhash{cursor:pointer;border-bottom:1px dashed var(--mut2)}
+  .copyhash:hover{color:var(--ink)}
+  tr:hover td{background:var(--paper)}
   .kind{font-family:var(--mono);font-size:10px;font-weight:600;background:var(--paper);padding:3px 8px;border-radius:100px;white-space:nowrap}
   .kind.k-settlement{background:var(--ink);color:#fff}
 
@@ -193,6 +197,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg></div>
     <div class="nav-i" data-v="agents" onclick="go('agents')" title="Agents">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+    <div class="nav-i" data-v="history" onclick="go('history')" title="Jobs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2.5"/></svg></div>
     <div class="nav-i" data-v="ledger" onclick="go('ledger')" title="Ledger">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
     <div class="nav-i" data-v="settings" onclick="go('settings')" title="Settings">
@@ -259,16 +265,24 @@
     <div class="agents-grid" id="agentsGrid"></div>
   </div>
 
+  <!-- ============ HISTORY ============ -->
+  <div class="view" id="v-history">
+    <div class="card">
+      <h2>Previous jobs <span class="badge" id="jobCount">0</span></h2>
+      <div id="jobsList"><div class="empty" style="padding:30px 0">No jobs yet this session.</div></div>
+    </div>
+  </div>
+
   <!-- ============ LEDGER ============ -->
   <div class="view" id="v-ledger">
     <div class="card" style="margin-bottom:20px" id="anchorsCard">
-      <h2>Real on-chain anchors <span class="badge" id="anchorCount">0</span></h2>
-      <div id="anchorsList"><div class="empty" style="padding:30px 0">Connect a wallet and anchor a completed job —<br>real transactions appear here with explorer links.</div></div>
+      <h2>Real on-chain transactions <span class="badge" id="anchorCount">0</span></h2>
+      <div id="anchorsList"><div class="empty" style="padding:30px 0">Run a job — every autonomous agreement, payment,<br>and anchor appears here with live explorer links.</div></div>
     </div>
     <div class="card">
       <h2>Commitment chain <span class="badge" id="ledgerBadge">…</span></h2>
       <div style="overflow-x:auto"><table id="ledgerTable">
-        <thead><tr><th>#</th><th>Kind</th><th>TxID</th><th>Commitment hash</th><th>Detail</th></tr></thead>
+        <thead><tr><th>#</th><th>Kind</th><th>TxID</th><th>Commitment hash</th><th>On-chain</th><th>Detail</th></tr></thead>
         <tbody id="ledgerBody"></tbody>
       </table></div>
     </div>
@@ -295,7 +309,8 @@
     <h3>Request refund</h3>
     <div class="sub" id="refundTask"></div>
     <div class="sub">Explain <b>specifically</b> what is objectively wrong — missing elements, broken output, or not what the task asked. The Dispute Arbiter rules strictly: style preferences and vague complaints are denied. One dispute per task.</div>
-    <textarea id="refundReason" placeholder="e.g. The design spec has no color palette even though the task required visual elements…"></textarea>
+    <textarea id="refundReason" placeholder="e.g. The design spec has no color palette even though the task required visual elements…" oninput="$('#reasonCount').textContent=this.value.trim().length+' chars (min 10)'"></textarea>
+    <div class="sub" id="reasonCount" style="margin:6px 0 0;text-align:right">0 chars (min 10)</div>
     <div class="row">
       <button class="btn ghost" onclick="$('#refundOverlay').classList.remove('show')">Cancel</button>
       <button class="btn solid" id="refundSubmit">Submit dispute</button>
@@ -336,6 +351,7 @@ function go(v){
   document.querySelectorAll('.nav-i').forEach(x=>x.classList.toggle('on', x.dataset.v===v));
   $('#v-'+v).classList.add('on');
   if(v==='ledger') loadLedger();
+  if(v==='history') loadHistory();
   if(v==='agents') loadAgentsGrid();
 }
 
@@ -396,29 +412,53 @@ function loadAgentsGrid(){
 }
 
 /* ================= ledger view ================= */
+async function loadHistory(){
+  const {jobs} = await (await fetch('/api/jobs')).json();
+  $('#jobCount').textContent = jobs.length;
+  if(!jobs.length) return;
+  $('#jobsList').innerHTML = jobs.map(j=>`
+    <div class="result-item" style="cursor:pointer" onclick="openJob('${j.key}')">
+      <div class="rt">${j.goal}</div>
+      <div class="rm">${j.done?'completed':'RUNNING'} · ${j.events} events · ${new Date(j.created*1000).toLocaleTimeString()} <span style="color:var(--ink);font-weight:600">· open →</span></div>
+    </div>`).join('');
+}
+function openJob(key){
+  go('console'); resetRunUI();
+  add(glyph('g-ink','↻')+`<div class="step-body"><div class="step-title">Replaying job</div><div class="step-meta">Loaded from server history</div></div>`);
+  followJob(key, 0);
+}
 async function loadLedger(){
   const {chain, verified} = await (await fetch('/api/chain')).json();
+  const anchorData = await (await fetch('/api/anchors')).json();
+  // join: local commitments whose hash was anchored on-chain get a live link
+  const onchain = {};
+  (anchorData.anchors||[]).forEach(a => { if(a.payload_hash) onchain[a.payload_hash] = a; });
   $('#ledgerBadge').textContent = verified ? `${chain.length} commitments · integrity ✓` : 'INTEGRITY BROKEN';
-  $('#ledgerBody').innerHTML = chain.slice().reverse().map((c,i)=>{
+  $('#ledgerBody').innerHTML = chain.map((c,i)=>{
     const p = c.payload || {};
     const detail = p.title || p.result || p.agent || p.task_id || '';
     const amt = p.amount!=null ? ` · ${p.amount} KAS` : (p.reward_kas!=null?` · ${p.reward_kas} KAS`:'');
+    const a = onchain[(c.commitment_hash||'').slice(0,18)];
+    const chainCell = a
+      ? `<a href="${a.explorer_url}" target="_blank" rel="noopener" style="font-weight:600;color:var(--ink)">⛓ explorer</a> · <a href="${a.api_url}" target="_blank" rel="noopener">raw</a>`
+      : '<span style="color:var(--mut2)">local</span>';
     return `<tr>
-      <td class="mono">${chain.length-i}</td>
+      <td class="idx">${String(i+1).padStart(2,'0')}</td>
       <td><span class="kind k-${(c.kind||'').replace('_commitment','')}">${(c.kind||'').replace('_',' ')}</span></td>
-      <td class="mono">${(c.txid||'').slice(0,14)}…</td>
-      <td class="mono">${(c.commitment_hash||'').slice(0,14)}…</td>
+      <td class="mono"><span class="copyhash" onclick="copyText('${c.txid||''}')" title="Click to copy full txid">${(c.txid||'').slice(0,14)}…</span></td>
+      <td class="mono"><span class="copyhash" onclick="copyText('${c.commitment_hash||''}')" title="Click to copy full hash">${(c.commitment_hash||'').slice(0,14)}…</span></td>
+      <td class="mono">${chainCell}</td>
       <td class="mono">${detail}${amt}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="5" class="mono">No commitments yet — run a job first.</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="mono">No commitments yet — run a job first.</td></tr>';
 
   const {anchors} = await (await fetch('/api/anchors')).json();
   $('#anchorCount').textContent = anchors.length;
   if(anchors.length){
     $('#anchorsList').innerHTML = anchors.map(a=>`
       <div class="result-item">
-        <div class="rt">Job ${a.job_id} — anchored on ${a.network}</div>
-        <div class="rm hash">tx <a href="${explorerUrl(a.network)}/txs/${a.txid}" target="_blank" rel="noopener">${a.txid.slice(0,20)}…</a> · master ${a.master_hash.slice(0,16)}…</div>
+        <div class="rt">${a.label} <span style="font-weight:400;color:var(--mut);font-size:12px">· ${a.amount_kas} tKAS</span></div>
+        <div class="rm hash">tx <a href="${a.explorer_url}" target="_blank" rel="noopener">${a.txid.slice(0,26)}…</a> · <a href="${a.api_url}" target="_blank" rel="noopener">raw</a> · payload ${a.payload_hash}</div>
       </div>`).join('');
   }
 }
@@ -612,6 +652,7 @@ $('#stop').onclick = async () => {
 
 
 /* ---------- workspace: view / copy / download / refund ---------- */
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); toast('Copied: '+t.slice(0,18)+'…'); }catch(e){ toast('Copy failed'); } }
 function toggleOut(i){ const o=$('#out-'+i); o.style.display=o.style.display==='none'?'block':'none'; }
 async function copyOut(i){
   try{ await navigator.clipboard.writeText(window._results[i].output||''); toast('Copied to clipboard.'); }
@@ -644,7 +685,7 @@ $('#refundSubmit') && ($('#refundSubmit').onclick = () => submitRefund());
 async function submitRefund(){
   const i = window._disputeIdx;
   const reason = $('#refundReason').value.trim();
-  if(reason.length < 15){ toast('Give a specific, detailed reason (at least a sentence).'); return; }
+  if(reason.length < 10){ toast(`Reason too short (${reason.length} chars) — describe what is objectively wrong.`); return; }
   $('#refundOverlay').classList.remove('show');
   toast('Arbiter reviewing your dispute…', 6000);
   const r = await (await fetch('/api/dispute',{method:'POST',headers:{'Content-Type':'application/json'},
