@@ -1,0 +1,19 @@
+# One-click deploy config for Render.com (free tier works)
+services:
+  - type: web
+    name: agentk
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false          # set in Render dashboard, never in code
+      - key: KASPA_PRIVATE_KEY
+        sync: false          # set in Render dashboard, never in code
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o-mini
+      - key: ONCHAIN_PAY_SCALE
+        value: "0.1"
+      - key: EXPLORER_TX_URL
+        value: https://tn10.kaspa.stream/transactions/{txid}

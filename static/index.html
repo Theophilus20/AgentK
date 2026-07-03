@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentK</title>
+<style>
+  :root{
+    --ink:#0a0a0a; --paper:#f4f4f5; --card:#ffffff; --line:#e6e6e8;
+    --mut:#8a8a90; --mut2:#b4b4ba;
+    --r:22px; --r-sm:14px;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-font-smoothing:antialiased}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);display:flex;min-height:100vh}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+  /* ---- sidebar ---- */
+  aside{width:74px;background:var(--ink);border-radius:26px;margin:18px;
+    display:flex;flex-direction:column;align-items:center;padding:22px 0;
+    position:sticky;top:18px;height:calc(100vh - 36px);flex-shrink:0}
+  .logo{color:#fff;font-weight:800;font-size:26px;letter-spacing:-1px;margin-bottom:44px;cursor:pointer}
+  .logo span{color:var(--mut2)}
+  nav{display:flex;flex-direction:column;gap:8px;flex:1;align-items:center}
+  .nav-i{width:44px;height:44px;border-radius:13px;color:#6b6b70;cursor:pointer;
+    display:grid;place-items:center;transition:all .18s}
+  .nav-i svg{width:21px;height:21px}
+  .nav-i:hover{color:#fff;background:rgba(255,255,255,.08)}
+  .nav-i.on{color:var(--ink);background:#fff}
+
+  /* ---- main ---- */
+  main{flex:1;padding:22px 30px 40px 6px;max-width:1240px}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;gap:14px}
+  h1{font-size:30px;font-weight:800;letter-spacing:-1.2px}
+  h1 small{display:block;font-size:13px;font-weight:500;color:var(--mut);margin-top:5px;letter-spacing:0}
+  .top-right{display:flex;gap:10px;align-items:center}
+  .status{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--mut);
+    font-family:var(--mono);background:var(--card);border:1px solid var(--line);
+    padding:9px 14px;border-radius:100px;white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--mut2)}
+  .dot.live{background:#0a0a0a;box-shadow:0 0 0 4px rgba(10,10,10,.08)}
+  .wallet-btn{background:var(--ink);color:#fff;border:none;padding:11px 18px;border-radius:100px;
+    font-size:13px;font-weight:600;cursor:pointer;display:flex;gap:8px;align-items:center;
+    font-family:var(--sans);transition:transform .12s;white-space:nowrap}
+  .wallet-btn:hover{transform:translateY(-1px)}
+  .wallet-btn.connected{background:var(--card);color:var(--ink);border:1px solid var(--line);font-family:var(--mono);font-size:12px}
+  .wallet-btn .wdot{width:7px;height:7px;border-radius:50%;background:#fff}
+  .wallet-btn.connected .wdot{background:var(--ink)}
+
+  /* ---- views ---- */
+  .view{display:none}
+  .view.on{display:block;animation:fadein .25s ease}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
+
+  /* ---- compose ---- */
+  .compose{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px;margin-bottom:20px}
+  .compose textarea{width:100%;border:none;resize:none;font-family:var(--sans);
+    font-size:19px;font-weight:600;letter-spacing:-.3px;color:var(--ink);outline:none;background:none}
+  .compose textarea::placeholder{color:var(--mut2)}
+  .params{display:flex;gap:14px;margin-top:16px;align-items:center;flex-wrap:wrap}
+  .field{display:flex;align-items:center;gap:8px;background:var(--paper);border-radius:100px;
+    padding:9px 15px;font-size:13px;color:var(--mut)}
+  .field input{width:52px;border:none;background:none;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink);outline:none}
+  .field b{color:var(--ink);font-weight:600}
+  .run{margin-left:auto;background:var(--ink);color:#fff;border:none;padding:13px 26px;border-radius:100px;
+    font-size:14px;font-weight:600;cursor:pointer;transition:transform .12s,opacity .2s;display:flex;gap:9px;align-items:center}
+  .run:hover{transform:translateY(-1px)}
+  .run:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+  .grid{display:grid;grid-template-columns:1fr 380px;gap:20px}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}aside{display:none}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+  .card h2{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--mut);
+    margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+  .badge{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--paper);
+    padding:3px 9px;border-radius:100px;letter-spacing:0;font-weight:500}
+
+  /* ---- feed ---- */
+  #feed{display:flex;flex-direction:column;max-height:560px;overflow-y:auto;margin:-4px -6px;padding:4px 6px}
+  #feed::-webkit-scrollbar{width:0}
+  .step{display:flex;gap:14px;padding:13px 4px;border-bottom:1px solid var(--line);animation:slide .35s ease both}
+  .step:last-child{border-bottom:none}
+  @keyframes slide{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .glyph{width:32px;height:32px;border-radius:10px;flex-shrink:0;display:grid;place-items:center;
+    font-size:13px;font-weight:700;font-family:var(--mono);overflow:hidden}
+  .g-ink{background:var(--ink);color:#fff}
+  .g-out{background:var(--paper);color:var(--ink);border:1px solid var(--line)}
+  .glyph svg{width:100%;height:100%}
+  .step-body{flex:1;min-width:0}
+  .step-title{font-size:14px;font-weight:600;letter-spacing:-.2px}
+  .step-meta{font-size:12px;color:var(--mut);margin-top:3px;line-height:1.5;word-break:break-word}
+  .hash{font-family:var(--mono);font-size:11px;color:var(--mut2)}
+  .hash a{color:var(--mut);text-decoration:underline}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;margin-right:6px}
+  .pill.rel{background:var(--ink);color:#fff}
+  .pill.ref{background:#fff;color:var(--ink);border:1px solid var(--ink)}
+  .empty{text-align:center;color:var(--mut2);font-size:13px;padding:60px 0}
+
+  /* ---- agents ---- */
+  .agent{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);transition:opacity .3s}
+  .agent:last-child{border-bottom:none}
+  .av{width:38px;height:38px;border-radius:11px;background:var(--ink);flex-shrink:0;overflow:hidden}
+  .av svg{width:100%;height:100%}
+  .agent-info{flex:1;min-width:0}
+  .agent-name{font-size:14px;font-weight:600}
+  .agent-role{font-size:12px;color:var(--mut);text-transform:capitalize}
+  .rep{text-align:right}
+  .rep-n{font-size:16px;font-weight:700;font-family:var(--mono)}
+  .rep-l{font-size:10px;color:var(--mut2);letter-spacing:.5px;text-transform:uppercase}
+  .repbar{height:3px;background:var(--paper);border-radius:2px;margin-top:6px;overflow:hidden}
+  .repbar i{display:block;height:100%;background:var(--ink);transition:width .5s}
+
+  .stat-row{display:flex;gap:12px;margin-bottom:12px}
+  .stat-row:last-child{margin-bottom:0}
+  .stat{flex:1;background:var(--paper);border-radius:var(--r-sm);padding:16px}
+  .stat-n{font-size:26px;font-weight:800;letter-spacing:-1px;font-family:var(--mono)}
+  .stat-l{font-size:11px;color:var(--mut);margin-top:2px;line-height:1.3}
+
+  .final{margin-top:20px;display:none}
+  .final.show{display:block;animation:slide .4s ease both}
+  .result-item{padding:12px 0;border-bottom:1px solid var(--line)}
+  .result-item:last-child{border:none}
+  .result-item .rt{font-size:13px;font-weight:600}
+  .result-item .rm{font-size:12px;color:var(--mut);margin-top:3px}
+  .anchor-btn{width:100%;margin-top:14px;background:var(--ink);color:#fff;border:none;padding:13px;
+    border-radius:100px;font-size:13px;font-weight:600;cursor:pointer;display:flex;gap:8px;align-items:center;justify-content:center}
+  .anchor-btn:disabled{opacity:.4;cursor:not-allowed}
+  .anchor-done{margin-top:14px;font-size:12px;color:var(--mut);text-align:center;line-height:1.6}
+  .anchor-done a{color:var(--ink);font-weight:600}
+
+  /* ---- agents view ---- */
+  .agents-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .agent-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+  .agent-card .head{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+  .av-lg{width:56px;height:56px;border-radius:16px;background:var(--ink);overflow:hidden;flex-shrink:0}
+  .av-lg svg{width:100%;height:100%}
+  .agent-card .name{font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .agent-card .role{font-size:12px;color:var(--mut);text-transform:capitalize}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+  .tag{font-size:11px;font-family:var(--mono);background:var(--paper);padding:4px 10px;border-radius:100px;color:var(--mut)}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border:none}
+  .kv b{font-family:var(--mono)}
+  .kv .mono{font-family:var(--mono);color:var(--mut);font-size:11px}
+
+  /* ---- ledger view ---- */
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--mut2);
+    padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700}
+  td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border:none}
+  td.mono{font-family:var(--mono);font-size:11px;color:var(--mut)}
+  .kind{font-family:var(--mono);font-size:10px;font-weight:600;background:var(--paper);padding:3px 8px;border-radius:100px;white-space:nowrap}
+  .kind.k-settlement{background:var(--ink);color:#fff}
+
+  /* ---- settings ---- */
+  .set-row{display:flex;justify-content:space-between;align-items:center;padding:15px 0;border-bottom:1px solid var(--line);gap:20px}
+  .set-row:last-child{border:none}
+  .set-l .t{font-size:14px;font-weight:600}
+  .set-l .d{font-size:12px;color:var(--mut);margin-top:2px;line-height:1.5}
+  .set-v{font-family:var(--mono);font-size:12px;color:var(--mut);text-align:right;word-break:break-all}
+  .set-v a{color:var(--ink)}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:var(--ink);color:#fff;padding:13px 22px;border-radius:100px;font-size:13px;
+    font-weight:500;transition:transform .3s ease;z-index:99;max-width:80vw}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .mini{background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:6px 13px;
+    font-size:11px;font-weight:600;font-family:var(--sans);cursor:pointer;color:var(--ink)}
+  .mini:hover{background:var(--ink);color:#fff}
+  .mini.warn{border-color:var(--ink)}
+  .overlay{position:fixed;inset:0;background:rgba(10,10,10,.45);display:none;place-items:center;z-index:100}
+  .overlay.show{display:grid}
+  .modal{background:var(--card);border-radius:var(--r);padding:26px;width:min(480px,92vw);animation:slide .25s ease}
+  .modal h3{font-size:17px;font-weight:700;letter-spacing:-.4px;margin-bottom:6px}
+  .modal .sub{font-size:12.5px;color:var(--mut);line-height:1.6;margin-bottom:14px}
+  .modal textarea{width:100%;min-height:110px;border:1px solid var(--line);border-radius:12px;
+    padding:12px;font-family:var(--sans);font-size:13.5px;resize:vertical;outline:none;color:var(--ink)}
+  .modal textarea:focus{border-color:var(--ink)}
+  .modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+  .modal .btn{border-radius:100px;padding:11px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+  .modal .btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+  .modal .btn.solid{background:var(--ink);border:none;color:#fff}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo" onclick="go('console')">K<span>.</span></div>
+  <nav>
+    <div class="nav-i on" data-v="console" onclick="go('console')" title="Console">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg></div>
+    <div class="nav-i" data-v="agents" onclick="go('agents')" title="Agents">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+    <div class="nav-i" data-v="ledger" onclick="go('ledger')" title="Ledger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+    <div class="nav-i" data-v="settings" onclick="go('settings')" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.9a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V20a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06A2 2 0 1 1 4.18 15.9l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 7.8a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 7.08 3.04l.06.06a1.7 1.7 0 0 0 1.87.34h.01A1.7 1.7 0 0 0 10.05 1.9V1.8a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01c.26.63.87 1.04 1.56 1.04H21a2 2 0 1 1 0 4h-.09c-.69 0-1.3.41-1.51 1.04Z"/></svg></div>
+  </nav>
+</aside>
+
+<main>
+  <div class="top">
+    <h1>AgentK<small>Programmable multi-agent coordination on Kaspa</small></h1>
+    <div class="top-right">
+      <div class="status"><span class="dot" id="dot"></span><span id="statusTxt">connecting…</span></div>
+    </div>
+  </div>
+
+  <!-- ============ CONSOLE ============ -->
+  <div class="view on" id="v-console">
+    <div class="compose">
+      <textarea id="goal" rows="1" placeholder="Describe a goal for the agent team…">Build me a landing page for a coffee subscription startup</textarea>
+      <div class="params">
+        <div class="field">Budget <input id="budget" type="number" value="40"> <b>KAS</b></div>
+        <div class="field">Deadline <input id="deadline" type="number" value="20"> <b>min</b></div>
+        <div class="field">Quality <select id="quality" style="border:none;background:none;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink);outline:none;cursor:pointer">
+          <option value="high">High</option><option value="balanced">Balanced</option><option value="fast">Fast</option>
+        </select></div>
+        <button class="run" id="run">Run team
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <button class="run" id="stop" style="display:none;background:#fff;color:var(--ink);border:1px solid var(--ink);margin-left:0">Stop</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Coordination lifecycle <span class="badge" id="jobId">idle</span></h2>
+        <div id="feed"><div class="empty">Submit a goal to watch agents negotiate, work,<br>and settle on Kaspa — commitment by commitment.</div></div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:20px">
+          <div class="stat-row">
+            <div class="stat"><div class="stat-n" id="sCommit">0</div><div class="stat-l">Kaspa commitments</div></div>
+            <div class="stat"><div class="stat-n" id="sSpent">0</div><div class="stat-l">KAS settled</div></div>
+          </div>
+          <div class="stat-row">
+            <div class="stat"><div class="stat-n" id="sTasks">0</div><div class="stat-l">Tasks verified</div></div>
+            <div class="stat"><div class="stat-n" id="sChain">✓</div><div class="stat-l">Chain integrity</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Agent marketplace <span class="badge">reputation</span></h2>
+          <div id="agents"></div>
+        </div>
+        <div class="card final" id="final">
+          <h2>Delivered <span class="badge" id="finalMeta"></span></h2>
+          <div id="results"></div>
+          <button class="anchor-btn" id="dlAll" onclick="downloadAll()" style="display:none">Download all work</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AGENTS ============ -->
+  <div class="view" id="v-agents">
+    <div class="agents-grid" id="agentsGrid"></div>
+  </div>
+
+  <!-- ============ LEDGER ============ -->
+  <div class="view" id="v-ledger">
+    <div class="card" style="margin-bottom:20px" id="anchorsCard">
+      <h2>Real on-chain anchors <span class="badge" id="anchorCount">0</span></h2>
+      <div id="anchorsList"><div class="empty" style="padding:30px 0">Connect a wallet and anchor a completed job —<br>real transactions appear here with explorer links.</div></div>
+    </div>
+    <div class="card">
+      <h2>Commitment chain <span class="badge" id="ledgerBadge">…</span></h2>
+      <div style="overflow-x:auto"><table id="ledgerTable">
+        <thead><tr><th>#</th><th>Kind</th><th>TxID</th><th>Commitment hash</th><th>Detail</th></tr></thead>
+        <tbody id="ledgerBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div class="view" id="v-settings">
+    <div class="card">
+      <h2>Configuration</h2>
+      <div class="set-row"><div class="set-l"><div class="t">Model</div><div class="d">Used by Coordinator, all specialist agents, and the Verifier via OpenRouter. Change with OPENROUTER_MODEL in .env.</div></div><div class="set-v" id="setModel">…</div></div>
+      <div class="set-row"><div class="set-l"><div class="t">LLM status</div><div class="d">Real API calls only — there is no mock in AgentK.</div></div><div class="set-v" id="setLlm">…</div></div>
+      <div class="set-row"><div class="set-l"><div class="t">Treasury</div><div class="d">Autonomous signer — the coordinator pays agents and anchors jobs on-chain with no user intervention. Users are protected by the Verifier and the strict dispute arbiter.</div></div><div class="set-v" id="setWallet">not connected</div></div>
+      <div class="set-row"><div class="set-l"><div class="t">Network</div><div class="d">All settlements and anchors go to Kaspa Testnet-10.</div></div><div class="set-v" id="setNetwork">—</div></div>
+      <div class="set-row"><div class="set-l"><div class="t">Explorer</div><div class="d">Verify any anchored transaction independently.</div></div><div class="set-v"><a href="https://explorer-tn10.kaspa.org" target="_blank" rel="noopener">explorer-tn10.kaspa.org</a></div></div>
+      <div class="set-row"><div class="set-l"><div class="t">Faucet</div><div class="d">Get free testnet KAS for anchoring.</div></div><div class="set-v"><a href="https://faucet-tn10.kaspanet.io" target="_blank" rel="noopener">faucet-tn10.kaspanet.io</a></div></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="refundOverlay">
+  <div class="modal">
+    <h3>Request refund</h3>
+    <div class="sub" id="refundTask"></div>
+    <div class="sub">Explain <b>specifically</b> what is objectively wrong — missing elements, broken output, or not what the task asked. The Dispute Arbiter rules strictly: style preferences and vague complaints are denied. One dispute per task.</div>
+    <textarea id="refundReason" placeholder="e.g. The design spec has no color palette even though the task required visual elements…"></textarea>
+    <div class="row">
+      <button class="btn ghost" onclick="$('#refundOverlay').classList.remove('show')">Cancel</button>
+      <button class="btn solid" id="refundSubmit">Submit dispute</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const feed = $('#feed');
+let commits = 0, spent = 0, tasksDone = 0;
+let lastJob = null;
+
+/* ================= avatars: hand-drawn character per agent ================ */
+function avatarSVG(name){
+  const S = 'stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"';
+  const heads = {
+    Athena: `<circle cx="50" cy="54" r="24" ${S}/><path d="M28 44 Q36 20 50 24 Q64 20 72 44" ${S}/><circle cx="50" cy="20" r="7" ${S}/>
+      <circle cx="41" cy="52" r="6" ${S}/><circle cx="59" cy="52" r="6" ${S}/><path d="M47 52 h6" ${S}/><path d="M44 66 Q50 70 56 66" ${S}/>`,
+    Quill: `<circle cx="50" cy="56" r="23" ${S}/><path d="M26 46 Q30 26 58 28 L74 22 Q76 34 68 40" ${S}/>
+      <circle cx="42" cy="54" r="2.6" fill="#fff"/><circle cx="58" cy="54" r="2.6" fill="#fff"/><path d="M44 67 Q50 71 56 67" ${S}/>`,
+    Pixel: `<rect x="28" y="34" width="44" height="42" rx="12" ${S}/><path d="M40 34 V26 M60 34 V26" ${S}/>
+      <rect x="36" y="48" width="10" height="9" rx="2.5" ${S}/><rect x="54" y="48" width="10" height="9" rx="2.5" ${S}/><path d="M46 52 h8" ${S}/><path d="M42 67 h16" ${S}/>`,
+    Forge: `<circle cx="50" cy="58" r="22" ${S}/><path d="M30 48 L36 32 L44 42 L50 28 L56 42 L64 32 L70 48" ${S}/>
+      <circle cx="42" cy="56" r="2.6" fill="#fff"/><circle cx="58" cy="56" r="2.6" fill="#fff"/><path d="M43 68 Q50 73 57 68" ${S}/>`,
+    Probe: `<circle cx="50" cy="58" r="22" ${S}/><path d="M50 36 V22 M50 22 h12" ${S}/><circle cx="66" cy="22" r="4" ${S}/>
+      <circle cx="42" cy="56" r="7" ${S}/><circle cx="42" cy="56" r="2.4" fill="#fff"/><circle cx="59" cy="56" r="2.6" fill="#fff"/><path d="M45 69 Q50 72 55 69" ${S}/>`,
+    Ledger: `<circle cx="50" cy="56" r="23" ${S}/><path d="M27 56 Q22 42 32 40 M73 56 Q78 42 68 40" ${S}/><path d="M30 40 Q38 24 62 28 Q70 32 70 40" ${S}/>
+      <circle cx="42" cy="55" r="2.6" fill="#fff"/><circle cx="58" cy="55" r="2.6" fill="#fff"/><path d="M44 66 h12" ${S}/><path d="M27 58 v8 M73 58 v8" ${S}/>`
+  };
+  const art = heads[name] || `<circle cx="50" cy="55" r="24" ${S}/><circle cx="42" cy="53" r="2.6" fill="#fff"/><circle cx="58" cy="53" r="2.6" fill="#fff"/><path d="M44 66 Q50 70 56 66" ${S}/>`;
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#0a0a0a"/>${art}</svg>`;
+}
+
+/* ================= navigation ================= */
+function go(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.nav-i').forEach(x=>x.classList.toggle('on', x.dataset.v===v));
+  $('#v-'+v).classList.add('on');
+  if(v==='ledger') loadLedger();
+  if(v==='agents') loadAgentsGrid();
+}
+
+function toast(msg, ms=3200){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms);
+}
+
+/* ================= boot ================= */
+async function boot(){
+  try{
+    const s = await (await fetch('/api/status')).json();
+    $('#statusTxt').textContent = s.model.split('/').pop() + (s.llm_live ? ' · live' : ' · no key');
+    $('#dot').classList.toggle('live', s.llm_live);
+    $('#setModel').textContent = s.model;
+    $('#setLlm').textContent = s.llm_live ? 'key loaded · live' : 'NO KEY — set OPENROUTER_API_KEY in .env';
+    if(s.signer_enabled){
+      $('#statusTxt').textContent += ' · autonomous ⛓';
+      $('#setWallet').textContent = s.signer_address;
+      $('#setNetwork').textContent = 'testnet-10 (auto-signing)';
+    } else {
+      $('#setWallet').textContent = 'signer off: ' + (s.signer_error||'');
+    }
+    loadAgents();
+    resumeLastJob();
+  }catch(e){ $('#statusTxt').textContent='offline'; }
+}
+
+async function loadAgents(){
+  const {agents} = await (await fetch('/api/agents')).json();
+  window._agents = agents;
+  $('#agents').innerHTML = agents.map(a=>`
+    <div class="agent" data-role="${a.role}">
+      <div class="av">${avatarSVG(a.name)}</div>
+      <div class="agent-info">
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-role">${a.role}</div>
+        <div class="repbar"><i style="width:${a.reputation}%"></i></div>
+      </div>
+      <div class="rep"><div class="rep-n">${a.reputation}</div><div class="rep-l">rep</div></div>
+    </div>`).join('');
+}
+
+function loadAgentsGrid(){
+  const agents = window._agents || [];
+  $('#agentsGrid').innerHTML = agents.map(a=>`
+    <div class="agent-card">
+      <div class="head">
+        <div class="av-lg">${avatarSVG(a.name)}</div>
+        <div><div class="name">${a.name}</div><div class="role">${a.role} specialist</div></div>
+      </div>
+      <div class="tags">${a.skill_tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <div class="kv"><span>Reputation</span><b>${a.reputation}</b></div>
+      <div class="kv"><span>Jobs completed</span><b>${a.jobs_done}</b></div>
+      <div class="kv"><span>Wallet</span><span class="mono">${a.wallet.slice(0,16)}…</span></div>
+      <div class="kv"><span>Public key</span><span class="mono">${a.pubkey}</span></div>
+    </div>`).join('');
+}
+
+/* ================= ledger view ================= */
+async function loadLedger(){
+  const {chain, verified} = await (await fetch('/api/chain')).json();
+  $('#ledgerBadge').textContent = verified ? `${chain.length} commitments · integrity ✓` : 'INTEGRITY BROKEN';
+  $('#ledgerBody').innerHTML = chain.slice().reverse().map((c,i)=>{
+    const p = c.payload || {};
+    const detail = p.title || p.result || p.agent || p.task_id || '';
+    const amt = p.amount!=null ? ` · ${p.amount} KAS` : (p.reward_kas!=null?` · ${p.reward_kas} KAS`:'');
+    return `<tr>
+      <td class="mono">${chain.length-i}</td>
+      <td><span class="kind k-${(c.kind||'').replace('_commitment','')}">${(c.kind||'').replace('_',' ')}</span></td>
+      <td class="mono">${(c.txid||'').slice(0,14)}…</td>
+      <td class="mono">${(c.commitment_hash||'').slice(0,14)}…</td>
+      <td class="mono">${detail}${amt}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" class="mono">No commitments yet — run a job first.</td></tr>';
+
+  const {anchors} = await (await fetch('/api/anchors')).json();
+  $('#anchorCount').textContent = anchors.length;
+  if(anchors.length){
+    $('#anchorsList').innerHTML = anchors.map(a=>`
+      <div class="result-item">
+        <div class="rt">Job ${a.job_id} — anchored on ${a.network}</div>
+        <div class="rm hash">tx <a href="${explorerUrl(a.network)}/txs/${a.txid}" target="_blank" rel="noopener">${a.txid.slice(0,20)}…</a> · master ${a.master_hash.slice(0,16)}…</div>
+      </div>`).join('');
+  }
+}
+
+function explorerUrl(net){ return 'https://tn10.kaspa.stream'; }
+
+/* ================= feed rendering ================= */
+function glyph(cls, txt){ return `<div class="glyph ${cls}">${txt}</div>`; }
+function agentGlyph(name){ return `<div class="glyph">${avatarSVG(name)}</div>`; }
+function add(html){
+  if(feed.querySelector('.empty')) feed.innerHTML='';
+  const d=document.createElement('div'); d.className='step'; d.innerHTML=html;
+  feed.appendChild(d); feed.scrollTop=feed.scrollHeight;
+}
+function short(h){ return h ? h.slice(0,10)+'…'+h.slice(-4) : ''; }
+function txlink(h){ return h ? `<a href="#" onclick="go('ledger');return false" title="Open in commitment ledger">${short(h)}</a>` : ''; }
+function bump(sel,v){ $(sel).textContent=v; }
+function highlight(role){
+  document.querySelectorAll('#agents .agent').forEach(a=>a.style.opacity=a.dataset.role===role?'1':'.45');
+}
+
+const render = {
+  job_created(d){
+    $('#jobId').textContent=d.job_id;
+    add(glyph('g-ink','U')+`<div class="step-body"><div class="step-title">Goal received</div>
+      <div class="step-meta">${d.goal}<br><span class="hash">budget ${d.budget} KAS · ${d.deadline_min} min · wallet ${short(d.user_wallet)}</span></div></div>`);
+  },
+  dag_built(d){
+    add(glyph('g-ink','⌘')+`<div class="step-body"><div class="step-title">Task graph built · ${d.tasks.length} tasks</div>
+      <div class="step-meta">${d.tasks.map(t=>t.title).join(' → ')}</div></div>`);
+  },
+  escrow_locked(d){
+    bump('#sCommit',++commits);
+    add(glyph('g-ink','◈')+`<div class="step-body"><div class="step-title">Escrow locked · ${d.amount} KAS</div>
+      <div class="step-meta">Budget held on Kaspa before any work begins<br><span class="hash">tx ${txlink(d.txid)} · ${short(d.commitment_hash)}</span></div></div>`);
+  },
+  negotiation(d){
+    highlight(d.skill);
+    add(agentGlyph(d.agent)+`<div class="step-body"><div class="step-title">${d.agent} bids ${d.bid_kas} KAS <span style="font-weight:400;color:var(--mut);font-size:12px">· ${d.task}</span></div>
+      <div class="step-meta"><span class="hash">rep ${d.reputation} · ${short(d.agent_wallet)}</span></div></div>`);
+  },
+  task_committed(d){
+    bump('#sCommit',++commits);
+    add(glyph('g-ink','◆')+`<div class="step-body"><div class="step-title">Task commitment anchored</div>
+      <div class="step-meta">Agreement sealed — reward ${d.reward_kas} KAS on verified delivery<br><span class="hash">tx ${txlink(d.txid)}</span></div></div>`);
+  },
+  work_submitted(d){
+    bump('#sCommit',++commits);
+    add(agentGlyph(d.agent)+`<div class="step-body"><div class="step-title">${d.agent} submitted work</div>
+      <div class="step-meta">${d.summary||'Output produced'} <span class="hash">· ${d.latency_s}s<br>proof ${txlink(d.work_hash)}</span></div></div>`);
+  },
+  verified(d){
+    bump('#sTasks',++tasksDone);
+    add(glyph(d.approved?'g-ink':'g-out', d.approved?'✓':'✕')+`<div class="step-body"><div class="step-title">Verifier ${d.approved?'approved':'rejected'} · score ${d.score}</div>
+      <div class="step-meta">${d.reason}</div></div>`);
+  },
+  settled(d){
+    bump('#sCommit',++commits);
+    if(d.result==='released'){ spent+=d.amount; bump('#sSpent', spent.toFixed(1)); }
+    const p = d.result==='released'?'<span class="pill rel">RELEASED</span>':'<span class="pill ref">REFUNDED</span>';
+    add(glyph('g-ink','◈')+`<div class="step-body"><div class="step-title">Settlement ${p}</div>
+      <div class="step-meta">${d.result==='released'?d.amount+' KAS → '+short(d.agent_wallet):d.amount+' KAS returned to user'}<br><span class="hash">tx ${txlink(d.txid)}</span></div></div>`);
+  },
+  reputation_updated(d){
+    bump('#sCommit',++commits);
+    document.querySelectorAll('#agents .agent').forEach(a=>{
+      if(a.querySelector('.agent-name').textContent===d.agent){
+        a.querySelector('.rep-n').textContent=d.reputation;
+        a.querySelector('.repbar i').style.width=d.reputation+'%';
+      }
+    });
+    if(window._agents){
+      const ag=window._agents.find(x=>x.name===d.agent);
+      if(ag){ ag.reputation=d.reputation; ag.jobs_done=(ag.jobs_done||0)+1; }
+    }
+  },
+  onchain_commitment(d){
+    if(d.ok){
+      bump('#sCommit',++commits);
+      add(glyph('g-ink','⛓')+`<div class="step-body"><div class="step-title">Agreement anchored ON-CHAIN · ${d.agent} · ${d.reward_kas} KAS</div>
+        <div class="step-meta">The signed pact is on Kaspa before work begins — undeniable by either side<br><span class="hash">tx <a href="${d.explorer_url}" target="_blank" rel="noopener">${d.txid.slice(0,26)}…</a> · <a href="${d.api_url}" target="_blank" rel="noopener">raw</a></span></div></div>`);
+    }else{
+      add(glyph('g-out','⛓')+`<div class="step-body"><div class="step-title">On-chain agreement skipped</div><div class="step-meta">${d.error}</div></div>`);
+    }
+  },
+  onchain_settled(d){
+    if(d.ok){
+      bump('#sCommit',++commits);
+      add(glyph('g-ink','⛓')+`<div class="step-body"><div class="step-title">REAL on-chain payment · ${d.amount_kas} tKAS → ${d.agent}</div>
+        <div class="step-meta">Signed autonomously · commitment hash in tx payload<br><span class="hash">tx <a href="${d.explorer_url}" target="_blank" rel="noopener">${d.txid.slice(0,26)}…</a>${d.api_url?` · <a href="${d.api_url}" target="_blank" rel="noopener">raw</a>`:''}</span></div></div>`);
+    }else{
+      add(glyph('g-out','⛓')+`<div class="step-body"><div class="step-title">On-chain payment skipped</div>
+        <div class="step-meta">${d.error}</div></div>`);
+    }
+  },
+  onchain_anchor(d){
+    if(d.ok){
+      bump('#sCommit',++commits);
+      window._lastAnchorUrl = d.explorer_url;
+      add(glyph('g-ink','⛓')+`<div class="step-body"><div class="step-title">Job anchored ON-CHAIN — autonomous</div>
+        <div class="step-meta">Master commitment hash sealed on Kaspa Testnet-10<br><span class="hash">tx <a href="${d.explorer_url}" target="_blank" rel="noopener">${d.txid.slice(0,26)}…</a>${d.api_url?` · <a href="${d.api_url}" target="_blank" rel="noopener">raw</a>`:''}</span></div></div>`);
+    }else{
+      add(glyph('g-out','⛓')+`<div class="step-body"><div class="step-title">On-chain anchor skipped</div>
+        <div class="step-meta">${d.error}</div></div>`);
+    }
+  },
+  error(d){
+    add(glyph('g-out','!')+`<div class="step-body"><div class="step-title">Stopped</div><div class="step-meta">${d.message}</div></div>`);
+    $('#run').disabled=false;
+  },
+  job_complete(d){
+    lastJob = d;
+    $('#sChain').textContent = d.chain_verified ? '✓' : '✕';
+    $('#finalMeta').textContent = `${d.total_spent_kas} KAS to agents · ${d.refunded_kas} back to user`;
+    window._results = d.results;
+    $('#results').innerHTML = d.results.map((r,i)=>`
+      <div class="result-item">
+        <div class="rt">${r.task}</div>
+        <div class="rm">${r.agent} · score ${r.score} · ${r.settled}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="mini" onclick="toggleOut(${i})">View</button>
+          <button class="mini" onclick="copyOut(${i})">Copy</button>
+          <button class="mini" onclick="downloadOut(${i})">Download</button>
+          ${r.settled==='released'?`<button class="mini warn" onclick="requestRefund(${i})">Request refund</button>`:''}
+        </div>
+        <div class="out" id="out-${i}" style="display:none;margin-top:8px;font-size:12px;white-space:pre-wrap;max-height:280px;overflow-y:auto;background:var(--paper);border-radius:10px;padding:12px;font-family:var(--mono)">${(r.output||'').replace(/</g,'&lt;')}</div>
+      </div>`).join('');
+    $('#dlAll').style.display = d.results.length ? 'flex' : 'none';
+    $('#final').classList.add('show');
+        add(glyph('g-ink','★')+`<div class="step-body"><div class="step-title">Job complete</div>
+      <div class="step-meta">${d.chain_length} commitments · integrity ${d.chain_verified?'verified ✓':'FAILED'}<br>
+      <span class="hash">${d.total_spent_kas} KAS to agents · ${d.refunded_kas} KAS back to user · master ${short(d.master_hash)}</span></div></div>`);
+    $('#run').disabled=false;
+  }
+};
+
+/* ================= run ================= */
+const ta=$('#goal');
+ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';});
+
+let pollTimer=null;
+function resetRunUI(){
+  feed.innerHTML=''; commits=0; spent=0; tasksDone=0; lastJob=null;
+  ['#sCommit','#sSpent','#sTasks'].forEach(s=>$(s).textContent='0');
+  $('#final').classList.remove('show');
+}
+function followJob(key, since=0){
+  window._jobKey = key; $('#run').disabled=true; $('#stop').style.display='flex';
+  let n = since;
+  const tick = async () => {
+    try{
+      const r = await (await fetch(`/api/jobs/${key}/events?since=${n}`)).json();
+      (r.events||[]).forEach(m=>(render[m.event]||(()=>{}))(m.data));
+      n = r.next;
+      if(r.done){
+        clearInterval(pollTimer); pollTimer=null;
+        $('#stop').style.display='none'; $('#run').disabled=false;
+        document.querySelectorAll('#agents .agent').forEach(a=>a.style.opacity='1');
+      }
+    }catch(e){ /* offline? keep polling — the job continues server-side */ }
+  };
+  if(pollTimer) clearInterval(pollTimer);
+  tick(); pollTimer = setInterval(tick, 1200);
+}
+async function resumeLastJob(){
+  try{
+    const {jobs} = await (await fetch('/api/jobs')).json();
+    if(!jobs || !jobs.length) return;
+    const j = jobs[0];
+    resetRunUI();
+    add(glyph('g-ink','↻')+`<div class="step-body"><div class="step-title">${j.done?'Reconnected — showing your completed job':'Reconnected — job still running server-side'}</div>
+      <div class="step-meta">${j.goal} · agents work even while you're offline</div></div>`);
+    followJob(j.key, 0);
+  }catch(e){}
+}
+$('#run').onclick = async () => {
+  const goal=$('#goal').value.trim(); if(!goal) return;
+  const budget=$('#budget').value||40, deadline=$('#deadline').value||20, quality=$('#quality').value||'high';
+  resetRunUI(); $('#run').disabled=true;
+  await loadAgents();
+  const r = await (await fetch('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({goal,budget,deadline,quality})})).json();
+  if(r.job_key) followJob(r.job_key, 0);
+  else { toast(r.error||'Could not start job'); $('#run').disabled=false; }
+};
+
+$('#stop').onclick = async () => {
+  if(window._jobKey){ await fetch(`/api/jobs/${window._jobKey}/stop`,{method:'POST'}).catch(()=>{}); }
+  toast('Stopping — unspent escrow returns to the user.');
+};
+
+
+/* ---------- workspace: view / copy / download / refund ---------- */
+function toggleOut(i){ const o=$('#out-'+i); o.style.display=o.style.display==='none'?'block':'none'; }
+async function copyOut(i){
+  try{ await navigator.clipboard.writeText(window._results[i].output||''); toast('Copied to clipboard.'); }
+  catch(e){ toast('Copy failed — use View and select manually.'); }
+}
+function fileFor(r){
+  const out = r.output||'';
+  const isHtml = /<!DOCTYPE|<html|<body|<div|<section/i.test(out);
+  const name = r.task.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,40);
+  return { name: name + (isHtml?'.html':'.md'), mime: isHtml?'text/html':'text/markdown', body: out };
+}
+function saveBlob(name, mime, body){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([body],{type:mime})); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function downloadOut(i){ const f=fileFor(window._results[i]); saveBlob(f.name,f.mime,f.body); }
+function downloadAll(){
+  const parts=(window._results||[]).map(r=>`==================== ${r.task} (by ${r.agent})\n\n${r.output||''}`);
+  saveBlob('agentk-deliverables.md','text/markdown',parts.join('\n\n'));
+}
+function requestRefund(i){
+  window._disputeIdx = i;
+  $('#refundTask').textContent = window._results[i].task + ' — by ' + window._results[i].agent;
+  $('#refundReason').value = '';
+  $('#refundOverlay').classList.add('show');
+  $('#refundReason').focus();
+}
+$('#refundSubmit') && ($('#refundSubmit').onclick = () => submitRefund());
+async function submitRefund(){
+  const i = window._disputeIdx;
+  const reason = $('#refundReason').value.trim();
+  if(reason.length < 15){ toast('Give a specific, detailed reason (at least a sentence).'); return; }
+  $('#refundOverlay').classList.remove('show');
+  toast('Arbiter reviewing your dispute…', 6000);
+  const r = await (await fetch('/api/dispute',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({job_key:window._jobKey, task_index:i, reason})})).json();
+  const link = r.onchain ? `<br><span class="hash">ruling anchored · <a href="${r.onchain.explorer_url}" target="_blank" rel="noopener">tx</a> · <a href="${r.onchain.api_url}" target="_blank" rel="noopener">raw</a></span>` : '';
+  add(glyph(r.upheld?'g-ink':'g-out','⚖')+`<div class="step-body"><div class="step-title">Dispute ${r.upheld?'UPHELD — refund granted, agent reputation slashed':'DENIED'}</div>
+    <div class="step-meta">${r.reason}${link}</div></div>`);
+  toast(r.upheld?'Refund granted.':'Refund denied: '+r.reason.slice(0,80), 6000);
+  if(r.upheld) loadAgents();
+}
+
+boot();
+</script>
+</body>
+</html>
